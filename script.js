@@ -1,28 +1,25 @@
-// Generate fake data
+// Generate fake data for one product
 function generateData() {
     const data = [];
     const startDate = new Date(2024, 6, 3); // July 3, 2024
-    const products = ['Product A', 'Product B', 'Product C'];
     const vulnerabilityLevels = ['Critical', 'High', 'Medium', 'Low'];
 
     for (let i = 0; i < 10; i++) {
         const date = new Date(startDate.getTime() + i * 7 * 24 * 60 * 60 * 1000);
-        for (const product of products) {
-            for (const level of vulnerabilityLevels) {
-                data.push({
-                    Date: date,
-                    Product: product,
-                    "Vulnerability Type": level,
-                    Count: Math.floor(Math.random() * 11)
-                });
-            }
+        for (const level of vulnerabilityLevels) {
+            data.push({
+                Date: date,
+                Product: 'Product A',
+                "Vulnerability Type": level,
+                Count: Math.floor(Math.random() * 11)
+            });
         }
     }
     return data;
 }
 
-// Create the visualization
-function createVisualization(data) {
+// Create the line chart visualization
+function createLineChart(data) {
     // Set up the chart dimensions
     const margin = {top: 20, right: 150, bottom: 50, left: 50};
     const width = 800 - margin.left - margin.right;
@@ -50,20 +47,18 @@ function createVisualization(data) {
         .x(d => x(d.Date))
         .y(d => y(d.Count));
 
-    // Group data by Product and Vulnerability Type
-    const nestedData = d3.group(data, d => d.Product, d => d["Vulnerability Type"]);
+    // Group data by Vulnerability Type
+    const nestedData = d3.group(data, d => d["Vulnerability Type"]);
 
-    // Draw lines for each product and vulnerability type
-    nestedData.forEach((productData, product) => {
-        productData.forEach((typeData, type) => {
-            svg.append("path")
-                .datum(typeData)
-                .attr("class", "line")
-                .attr("d", line)
-                .style("stroke", color(product + "-" + type))
-                .style("fill", "none")
-                .style("stroke-width", 2);
-        });
+    // Draw lines for each vulnerability type
+    nestedData.forEach((typeData, type) => {
+        svg.append("path")
+            .datum(typeData)
+            .attr("class", "line")
+            .attr("d", line)
+            .style("stroke", color(type))
+            .style("fill", "none")
+            .style("stroke-width", 2);
     });
 
     // Add x-axis
@@ -77,9 +72,7 @@ function createVisualization(data) {
 
     // Add legend
     const legend = svg.selectAll(".legend")
-        .data(Array.from(nestedData.keys()).flatMap(product => 
-            ["Critical", "High", "Medium", "Low"].map(type => ({product, type}))
-        ))
+        .data(Array.from(nestedData.keys()))
         .enter().append("g")
         .attr("class", "legend")
         .attr("transform", (d, i) => `translate(0,${i * 20})`);
@@ -88,16 +81,73 @@ function createVisualization(data) {
         .attr("x", width)
         .attr("width", 18)
         .attr("height", 18)
-        .style("fill", d => color(d.product + "-" + d.type));
+        .style("fill", d => color(d));
 
     legend.append("text")
         .attr("x", width + 25)
         .attr("y", 9)
         .attr("dy", ".35em")
         .style("text-anchor", "start")
-        .text(d => `${d.product} - ${d.type}`);
+        .text(d => d);
 }
 
-// Generate data and create visualization
+// Create the pie chart visualization
+function createPieChart(data) {
+    const width = 450;
+    const height = 450;
+    const margin = 40;
+
+    // The radius of the pieplot is half the width or height (smallest one)
+    const radius = Math.min(width, height) / 2 - margin;
+
+    // Append the svg object to the div called 'pie'
+    const svg = d3.select("#pie")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", `translate(${width / 2},${height / 2})`);
+
+    // Aggregate data for pie chart
+    const aggregatedData = d3.rollup(data, v => d3.sum(v, d => d.Count), d => d["Vulnerability Type"]);
+    const pieData = Array.from(aggregatedData, ([type, count]) => ({type, count}));
+
+    // Set the color scale
+    const color = d3.scaleOrdinal()
+        .domain(pieData.map(d => d.type))
+        .range(d3.schemeCategory10);
+
+    // Compute the position of each group on the pie
+    const pie = d3.pie()
+        .value(d => d.count);
+
+    const data_ready = pie(pieData);
+
+    // Build the pie chart
+    svg.selectAll('whatever')
+        .data(data_ready)
+        .enter()
+        .append('path')
+        .attr('d', d3.arc()
+            .innerRadius(0)
+            .outerRadius(radius))
+        .attr('fill', d => color(d.data.type))
+        .attr("stroke", "white")
+        .style("stroke-width", "2px")
+        .style("opacity", 0.7);
+
+    // Add labels
+    svg.selectAll('whatever')
+        .data(data_ready)
+        .enter()
+        .append('text')
+        .text(d => `${d.data.type}: ${d.data.count}`)
+        .attr("transform", d => `translate(${d3.arc().innerRadius(0).outerRadius(radius).centroid(d)})`)
+        .style("text-anchor", "middle")
+        .style("font-size", 12);
+}
+
+// Generate data and create visualizations
 const data = generateData();
-createVisualization(data);
+createLineChart(data);
+createPieChart(data);
